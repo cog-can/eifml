@@ -1,2 +1,2 @@
 ﻿# EIFML
-  Exercises for Estimation, Informantion Fusion and Machine Learning
+  Exercises for Estimation, Information Fusion and Machine Learning
