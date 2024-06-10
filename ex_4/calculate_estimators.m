@@ -68,8 +68,8 @@ function [x_ML, x_MAP] = calculate_estimators(N,sigma_x)
         end
     end
 
-    error_ML = sqrt((x_ML_max - x_ML) ^ 2) / x_ML;
-    error_MAP = sqrt((x_MAP_max - x_MAP) ^ 2) / x_MAP;
+    error_ML = abs((x_ML_max - x_ML)) / x_ML;
+    error_MAP = abs((x_MAP_max - x_MAP)) / x_MAP;
 
     if error_ML > 0.01 || error_MAP > 0.01
         error("Error over 1%!")
