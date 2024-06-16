@@ -4,6 +4,6 @@ function [posteriorMean,posteriorCovariance,gainX] = kalmanUpdate(priorMean,prio
 
     gainX = priorCovariance * H' / S;
     posteriorMean = priorMean + gainX * residue;
-    posteriorCovariance = priorCovariance + gainX * S * gainX';
+    posteriorCovariance = priorCovariance - gainX * S * gainX';
 end
 
