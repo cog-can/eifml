@@ -18,10 +18,10 @@ Q = [
 ] .* proNoise;
 
 sigmaRange = 5; % Measurement error standard deviation in range
-sigmaTheta = 4*pi/180; % Measurement error standard deviation in angle
+sigmaTheta = 6*pi/180; % Measurement error standard deviation in angle
 R = [sigmaRange^2 0; 0 sigmaTheta^2]; % Measurement error covariance
 radarState = [-600 800];
-secondary_radar_state = [600, 800];
+radar_state_secondary = [600, 800];
 
 % Preallocate arrays for holding RMSE data
 ekfRmseTrackPos = zeros(1,60);
@@ -43,22 +43,34 @@ for j = 1:numMonteCarlo
     % Arrays for logging data from a single run
     measurements = zeros(2,60); % Log of measurements in polar space
     measurementsCart = zeros(2,60); % Log of the measurements in Cartesian space
+    measurements_secondary = zeros(2,60); % Log of measurements in polar space
+    measurementsCart_secondary = zeros(2,60); % Log of the measurements in Cartesian space
     ekfEstimate = zeros(4,60); % Log of EKF estimate
     ukfEstimate = zeros(4,60); % Log of UKF estimate
     
     % Loop for each time step
     for i = 1:60
         % Generate a random measurement
-        z = GenerateMeasurement(targetState(:,i),R,radarState);   
+        z = GenerateMeasurement(targetState(:,i),R,radarState);
+        z_secondary = GenerateMeasurement(targetState(:, i), R, radar_state_secondary);
         % Store the measurement
-        measurements(:,i) = z; 
-        [measX,measY] = pol2cart(z(2),z(1)); % Convert measurement into Cartesian space       
+        measurements(:,i) = z;
+        measurements_secondary(:, i) = z_secondary; 
+        [measX,measY] = pol2cart(z(2),z(1)); % Convert measurement into Cartesian space
+        [measX_secondary,measY_secondary] = pol2cart(z_secondary(2),z_secondary(1)); % Convert measurement into Cartesian space
+        
         measurementsCart(:,i) = [radarState(1)+measX;radarState(2)+measY]; % Store measurement
+        measurementsCart_secondary(:,i) = [
+            radar_state_secondary(1)+measX_secondary;
+            radar_state_secondary(2)+measY_secondary
+        ]; % Store measurement
         if i == 1        
             % Store the first time step to be used later in two point
             % initialisation
-            ekfEstimate(:,i) = [radarState(1)+measX; radarState(2)+measY;0;0];
-            ukfEstimate(:,i) = [radarState(1)+measX; radarState(2)+measY;0;0];
+            ekfEstimate(:,i) = ([radarState(1)+measX; radarState(2)+measY;0;0] + ...
+                                [radar_state_secondary(1)+measX_secondary; radar_state_secondary(2)+measY_secondary;0;0]) / 2;
+            ukfEstimate(:,i) = ([radarState(1)+measX; radarState(2)+measY;0;0] + ...
+                                [radar_state_secondary(1)+measX_secondary; radar_state_secondary(2)+measY_secondary;0;0]) / 2;
         elseif i == 2
             % Perform two point initialisation
             ekfMean = [radarState(1)+measX;radarState(2)+measY;radarState(1)+measX-ekfEstimate(1,i-1);radarState(2)+measY-ekfEstimate(2,i-1)];
@@ -80,9 +92,11 @@ for j = 1:numMonteCarlo
             [ukfPriorMean,ukfPriorCovar] = kalmanPrediction(ukfMean,ukfCovar,F,Q);
             % Extended Kalman update step
             [ekfMean, ekfCovar] = EkfUpdate(ekfPriorMean,ekfPriorCovar,z,R,radarState);
+            [ekfMean, ekfCovar] = EkfUpdate(ekfMean,ekfCovar,z_secondary,R,radar_state_secondary);
             ekfEstimate(:,i) = ekfMean;
-            % Extended Kalman update step
+            % Unscented Kalman update step
             [ukfMean, ukfCovar] = UkfUpdate(ukfPriorMean,ukfPriorCovar,z,R,radarState);
+            [ukfMean, ukfCovar] = UkfUpdate(ukfMean,ukfCovar,z_secondary,R,radar_state_secondary);
             ukfEstimate(:,i) = ukfMean;
         end
     end
@@ -102,11 +116,13 @@ for j = 1:numMonteCarlo
         plot(ekfEstimate(1,:),ekfEstimate(2,:),'r')
         plot(ukfEstimate(1,:),ukfEstimate(2,:),'g')
         plot(measurementsCart(1,:),measurementsCart(2,:),'x')
+        plot(measurementsCart_secondary(1,:),measurementsCart_secondary(2,:),'o')
         ylim([0 600])
         xlim([-200 200])
         xlabel('X (m)')
         ylabel('Y (m)')
         title('Target State, Estimate and Measurements')
+        legend("Target", "EKF", "UKF", "Radar 1", "Radar 2")
     end
 end
 
